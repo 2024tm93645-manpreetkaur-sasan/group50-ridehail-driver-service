@@ -3,77 +3,101 @@ package com.rides.app.driver.service;
 import com.rides.app.driver.dto.DriverDto;
 import com.rides.app.driver.entity.Driver;
 import com.rides.app.driver.entity.Vehicle;
-import com.rides.app.driver.exception.NotFoundException;
+import com.rides.app.driver.events.DriverEvents;
+import com.rides.app.driver.kafka.KafkaProducerService;
 import com.rides.app.driver.repository.DriverRepository;
 import com.rides.app.driver.repository.VehicleRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.List;
 
-
 @Service
+@RequiredArgsConstructor
 public class DriverService {
+
     private final DriverRepository driverRepository;
     private final VehicleRepository vehicleRepository;
+    private final KafkaProducerService producer;
 
-    public DriverService(DriverRepository driverRepository, VehicleRepository vehicleRepository) {
-        this.driverRepository = driverRepository;
-        this.vehicleRepository = vehicleRepository;
-    }
+    @Value("${app.kafka.topic.driver-registered:driver.registered}")
+    private String topicDriverRegistered;
 
-    public Driver createDriver(DriverDto dto) {
-        Driver d = Driver.builder()
-                .name(dto.getName())
-                .phone(dto.getPhone())
-                .email(dto.getEmail())
-                .licenseNumber(dto.getLicenseNumber())
-                .isActive(Boolean.valueOf(dto.getIsActive() == null || dto.getIsActive()))
-                .build();
-        return driverRepository.save(d);
-    }
+    @Value("${app.kafka.topic.driver-status:driver.status.changed}")
+    private String topicDriverStatus;
 
-    public Driver getDriver(Long id) {
-        return driverRepository.findById(id).orElseThrow(() -> new NotFoundException("Driver not found: " + id));
-    }
+    // ======== CRUD ========
 
     public List<Driver> listDrivers() {
         return driverRepository.findAll();
     }
 
-    @Transactional
+    public Driver getDriver(Long id) {
+        return driverRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Driver not found: " + id));
+    }
+
+    public Driver createDriver(DriverDto dto) {
+        Driver driver = Driver.builder()
+                .name(dto.getName())
+                .phone(dto.getPhone())
+                .email(dto.getEmail())
+                .licenseNumber(dto.getLicenseNumber())
+                .isActive(true)
+                .build();
+
+        Driver saved = driverRepository.save(driver);
+
+        // publish event
+        producer.send(topicDriverRegistered,
+                DriverEvents.DriverRegistered.builder()
+                        .driverId(saved.getId())
+                        .name(saved.getName())
+                        .phone(saved.getPhone())
+                        .email(saved.getEmail())
+                        .licenseNumber(saved.getLicenseNumber())
+                        .createdAt(Instant.now())
+                        .build());
+        return saved;
+    }
+
     public Driver updateDriver(Long id, DriverDto dto) {
-        Driver d = getDriver(id);
-        if (dto.getName() != null) d.setName(dto.getName());
-        if (dto.getEmail() != null) d.setEmail(dto.getEmail());
-        if (dto.getLicenseNumber() != null) d.setLicenseNumber(dto.getLicenseNumber());
-        if (dto.getIsActive() != null) d.setIsActive(dto.getIsActive());
-        return driverRepository.save(d);
+        Driver existing = getDriver(id);
+        existing.setName(dto.getName());
+        existing.setPhone(dto.getPhone());
+        existing.setEmail(dto.getEmail());
+        existing.setLicenseNumber(dto.getLicenseNumber());
+        return driverRepository.save(existing);
     }
 
-    @Transactional
     public void deleteDriver(Long id) {
-        Driver d = getDriver(id);
-        driverRepository.delete(d);
+        driverRepository.deleteById(id);
     }
 
-    @Transactional
+    // ======== STATUS ========
+
     public Driver setStatus(Long id, boolean active) {
-        Driver d = getDriver(id);
-        d.setIsActive(Boolean.valueOf(active));
-        // TODO: publish driver.status.changed event
-        return driverRepository.save(d);
+        Driver driver = getDriver(id);
+        driver.setIsActive(active);
+        Driver saved = driverRepository.save(driver);
+
+        producer.send(topicDriverStatus,
+                DriverEvents.DriverStatusChanged.builder()
+                        .driverId(saved.getId())
+                        .isActive(saved.getIsActive())
+                        .changedAt(Instant.now())
+                        .build());
+        return saved;
     }
 
-    @Transactional
-    public Driver addOrUpdateVehicle(Long driverId, Vehicle vehicle) {
-        getDriver(driverId); // validate exists
-        vehicle.setDriverId(driverId);
-        return driverRepository.findById(driverId)
-                .map(dr -> {
-                    vehicleRepository.save(vehicle);
-                    return dr;
-                }).orElseThrow(() -> new NotFoundException("Driver not found: " + driverId));
+    // ======== VEHICLES ========
+
+    public void addOrUpdateVehicle(Long driverId, Vehicle vehicle) {
+        Driver driver = getDriver(driverId);
+        vehicle.setDriver(driver);
+        vehicleRepository.save(vehicle);
     }
 
     public List<Vehicle> getVehicles(Long driverId) {

@@ -98,9 +98,9 @@ public class DataLoader {
                             if (existingVehicleOpt.isPresent()) {
                                 Vehicle existing = existingVehicleOpt.get();
                                 // If plate exists but linked to different driver, log and skip/update based on your rule
-                                if (!existing.getDriverId().equals(driver.getId())) {
+                                if (!existing.getId().equals(driver.getId())) {
                                     log.warn("Plate {} already exists for driver {}. Skipping assign to driver {}",
-                                            plate, existing.getDriverId(), driver.getId());
+                                            plate, existing.getId(), driver.getId());
                                     skipped++;
                                 } else {
                                     // same driver — update fields if any changed
@@ -135,7 +135,7 @@ public class DataLoader {
                                 // create new vehicle
                                 try {
                                     Vehicle v = Vehicle.builder()
-                                            .driverId(driver.getId())
+                                            .id(driver.getId())
                                             .plate(plate)
                                             .make(make)
                                             .model(model)

@@ -2,13 +2,16 @@ package com.rides.app.driver.service;
 
 import com.rides.app.driver.entity.Driver;
 import com.rides.app.driver.entity.DriverLocation;
+import com.rides.app.driver.events.DriverEvents;
 import com.rides.app.driver.exception.TooManyRequestsException;
+import com.rides.app.driver.kafka.KafkaProducerService;
 import com.rides.app.driver.repository.DriverLocationRepository;
 import com.rides.app.driver.repository.DriverRepository;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,27 +22,33 @@ import java.util.stream.Collectors;
 
 @Service
 public class DriverLocationService {
+
     private final DriverLocationRepository locationRepository;
     private final DriverRepository driverRepository;
+    private final KafkaProducerService producer;
 
-    // simple per-driver timestamp map (stores last update epoch millis)
     private final ConcurrentHashMap<Long, Long> lastUpdateMap = new ConcurrentHashMap<>();
 
-    // minimum interval between updates (milliseconds) — configurable if you want
-    private final long minUpdateIntervalMillis = 1000L; // 1 second by default
+    @Value("${app.location.min-interval-ms:1000}")
+    private long minUpdateIntervalMillis;
 
-    public DriverLocationService(DriverLocationRepository locationRepository, DriverRepository driverRepository) {
+    @Value("${app.kafka.topic.driver-location:driver.location.updated}")
+    private String topicDriverLocation;
+
+    public DriverLocationService(DriverLocationRepository locationRepository,
+                                 DriverRepository driverRepository,
+                                 KafkaProducerService producer) {
         this.locationRepository = locationRepository;
         this.driverRepository = driverRepository;
+        this.producer = producer;
     }
 
     @Transactional
     public DriverLocation updateLocation(Long driverId, double lat, double lon, Double speed, Double heading) {
-        // ensure driver exists
         Driver driver = driverRepository.findById(driverId)
                 .orElseThrow(() -> new IllegalArgumentException("Driver not found: " + driverId));
 
-        // rate-limit check
+        // Simple rate limiting
         long now = Instant.now().toEpochMilli();
         Long last = lastUpdateMap.get(driverId);
         if (last != null && (now - last) < minUpdateIntervalMillis) {
@@ -54,14 +63,26 @@ public class DriverLocationService {
         loc.setLon(lon);
         loc.setSpeed(speed);
         loc.setHeading(heading);
-        loc.setLastSeenAt(Instant.ofEpochMilli(now));
+        loc.setLastSeenAt(Instant.now());
 
-        return locationRepository.save(loc);
+        DriverLocation saved = locationRepository.save(loc);
+
+        // --- Publish driver.location.updated event ---
+        producer.send(topicDriverLocation,
+                DriverEvents.DriverLocationUpdated.builder()
+                        .driverId(driverId)
+                        .lat(lat)
+                        .lon(lon)
+                        .ts(Instant.now())
+                        .build());
+
+        return saved;
     }
 
     public List<NearbyDriver> findNearby(double lat, double lon, double radiusKm, int limit) {
         if (radiusKm <= 0) radiusKm = 5.0;
         if (limit <= 0) limit = 20;
+
         List<Object[]> rows = locationRepository.findNearbyActiveRaw(lat, lon, radiusKm, limit);
         return rows.stream()
                 .map(r -> new NearbyDriver(
@@ -73,7 +94,10 @@ public class DriverLocationService {
                 .collect(Collectors.toList());
     }
 
-    @Data @NoArgsConstructor @AllArgsConstructor @Builder
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
     public static class NearbyDriver {
         private Long driverId;
         private Double lat;
