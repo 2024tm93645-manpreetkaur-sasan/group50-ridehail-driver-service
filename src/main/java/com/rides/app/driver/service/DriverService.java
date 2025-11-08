@@ -3,8 +3,6 @@ package com.rides.app.driver.service;
 import com.rides.app.driver.dto.DriverDto;
 import com.rides.app.driver.entity.Driver;
 import com.rides.app.driver.entity.Vehicle;
-import com.rides.app.driver.events.DriverEvents;
-import com.rides.app.driver.kafka.KafkaProducerService;
 import com.rides.app.driver.repository.DriverRepository;
 import com.rides.app.driver.repository.VehicleRepository;
 import lombok.RequiredArgsConstructor;
@@ -20,7 +18,6 @@ public class DriverService {
 
     private final DriverRepository driverRepository;
     private final VehicleRepository vehicleRepository;
-    private final KafkaProducerService producer;
 
     @Value("${app.kafka.topic.driver-registered:driver.registered}")
     private String topicDriverRegistered;
@@ -50,16 +47,6 @@ public class DriverService {
 
         Driver saved = driverRepository.save(driver);
 
-        // publish event
-        producer.send(topicDriverRegistered,
-                DriverEvents.DriverRegistered.builder()
-                        .driverId(saved.getId())
-                        .name(saved.getName())
-                        .phone(saved.getPhone())
-                        .email(saved.getEmail())
-                        .licenseNumber(saved.getLicenseNumber())
-                        .createdAt(Instant.now())
-                        .build());
         return saved;
     }
 
@@ -83,12 +70,6 @@ public class DriverService {
         driver.setIsActive(active);
         Driver saved = driverRepository.save(driver);
 
-        producer.send(topicDriverStatus,
-                DriverEvents.DriverStatusChanged.builder()
-                        .driverId(saved.getId())
-                        .isActive(saved.getIsActive())
-                        .changedAt(Instant.now())
-                        .build());
         return saved;
     }
 

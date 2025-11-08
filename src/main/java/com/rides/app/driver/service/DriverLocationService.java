@@ -2,9 +2,7 @@ package com.rides.app.driver.service;
 
 import com.rides.app.driver.entity.Driver;
 import com.rides.app.driver.entity.DriverLocation;
-import com.rides.app.driver.events.DriverEvents;
 import com.rides.app.driver.exception.TooManyRequestsException;
-import com.rides.app.driver.kafka.KafkaProducerService;
 import com.rides.app.driver.repository.DriverLocationRepository;
 import com.rides.app.driver.repository.DriverRepository;
 import lombok.AllArgsConstructor;
@@ -25,8 +23,6 @@ public class DriverLocationService {
 
     private final DriverLocationRepository locationRepository;
     private final DriverRepository driverRepository;
-    private final KafkaProducerService producer;
-
     private final ConcurrentHashMap<Long, Long> lastUpdateMap = new ConcurrentHashMap<>();
 
     @Value("${app.location.min-interval-ms:1000}")
@@ -36,11 +32,10 @@ public class DriverLocationService {
     private String topicDriverLocation;
 
     public DriverLocationService(DriverLocationRepository locationRepository,
-                                 DriverRepository driverRepository,
-                                 KafkaProducerService producer) {
+                                 DriverRepository driverRepository
+                                ) {
         this.locationRepository = locationRepository;
         this.driverRepository = driverRepository;
-        this.producer = producer;
     }
 
     @Transactional
@@ -67,14 +62,6 @@ public class DriverLocationService {
 
         DriverLocation saved = locationRepository.save(loc);
 
-        // --- Publish driver.location.updated event ---
-        producer.send(topicDriverLocation,
-                DriverEvents.DriverLocationUpdated.builder()
-                        .driverId(driverId)
-                        .lat(lat)
-                        .lon(lon)
-                        .ts(Instant.now())
-                        .build());
 
         return saved;
     }
