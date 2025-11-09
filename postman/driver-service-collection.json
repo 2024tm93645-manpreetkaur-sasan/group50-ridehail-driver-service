@@ -1,0 +1,160 @@
+{
+  "info": {
+    "_postman_id": "b1fb1234-5678-4d89-a001-driver-service",
+    "name": "Driver Service",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Health Check",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "X-Correlation-Id", "value": "{{correlationId}}" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/health",
+          "host": ["{{baseUrl}}"],
+          "path": ["health"]
+        }
+      }
+    },
+    {
+      "name": "Metrics",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/metrics",
+          "host": ["{{baseUrl}}"],
+          "path": ["metrics"]
+        }
+      }
+    },
+    {
+      "name": "List Drivers",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "X-Correlation-Id", "value": "{{correlationId}}" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/v1/drivers",
+          "host": ["{{baseUrl}}"],
+          "path": ["v1", "drivers"]
+        }
+      }
+    },
+    {
+      "name": "Search Drivers",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "X-Correlation-Id", "value": "{{correlationId}}" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/v1/drivers/search?name=Driver1",
+          "host": ["{{baseUrl}}"],
+          "path": ["v1", "drivers", "search"],
+          "query": [
+            { "key": "name", "value": "Driver1" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Get Driver by ID",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "X-Correlation-Id", "value": "{{correlationId}}" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/v1/drivers/1",
+          "host": ["{{baseUrl}}"],
+          "path": ["v1", "drivers", "1"]
+        }
+      }
+    },
+    {
+      "name": "Create Driver",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "X-Correlation-Id", "value": "{{correlationId}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"DriverX\",\n  \"phone\": \"9876543210\",\n  \"vehicle_type\": \"SUV\",\n  \"vehicle_plate\": \"KA09ZZ9999\",\n  \"is_active\": true\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/v1/drivers",
+          "host": ["{{baseUrl}}"],
+          "path": ["v1", "drivers"]
+        }
+      }
+    },
+    {
+      "name": "Update Driver (PUT)",
+      "request": {
+        "method": "PUT",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "X-Correlation-Id", "value": "{{correlationId}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Updated Driver\",\n  \"phone\": \"9000000000\",\n  \"vehicle_type\": \"Auto\",\n  \"vehicle_plate\": \"KA11XX1111\",\n  \"is_active\": false\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/v1/drivers/1",
+          "host": ["{{baseUrl}}"],
+          "path": ["v1", "drivers", "1"]
+        }
+      }
+    },
+    {
+      "name": "Update Driver Status (PATCH)",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "X-Correlation-Id", "value": "{{correlationId}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"is_active\": true\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/v1/drivers/1/status",
+          "host": ["{{baseUrl}}"],
+          "path": ["v1", "drivers", "1", "status"]
+        }
+      }
+    },
+    {
+      "name": "Delete Driver",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          { "key": "X-Correlation-Id", "value": "{{correlationId}}" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/v1/drivers/1",
+          "host": ["{{baseUrl}}"],
+          "path": ["v1", "drivers", "1"]
+        }
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:9084"
+    },
+    {
+      "key": "correlationId",
+      "value": "postman-demo-123"
+    }
+  ]
+}

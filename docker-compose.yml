@@ -1,0 +1,38 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: driversdb
+      POSTGRES_USER: driver_user
+      POSTGRES_PASSWORD: driver_pass
+    ports:
+      - "5437:5432"
+    volumes:
+      - dbdata:/var/lib/postgresql/data
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U driver_user -d driversdb"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  driver-service:
+    build: .
+    environment:
+      PORT: 9084
+      PGHOST: postgres
+      PGPORT: 5432
+      PGDATABASE: driversdb
+      PGUSER: driver_user
+      PGPASSWORD: driver_pass
+      NODE_ENV: production
+    ports:
+      - "9084:9084"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./data:/app/data
+
+volumes:
+  dbdata:
