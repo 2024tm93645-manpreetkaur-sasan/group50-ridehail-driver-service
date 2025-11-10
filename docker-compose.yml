@@ -1,6 +1,9 @@
 services:
   postgres:
-    image: postgres:16-alpine
+    build:
+      context: .
+      dockerfile: Dockerfile.driver-db
+    image: driver-db:1.0
     environment:
       POSTGRES_DB: driversdb
       POSTGRES_USER: driver_user
@@ -17,7 +20,10 @@ services:
       retries: 10
 
   driver-service:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile.driver-service
+    image : driver-service:latest
     environment:
       PORT: 9084
       PGHOST: postgres
